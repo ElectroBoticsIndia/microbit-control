@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>micro:bit Bluetooth Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface-raised: #1a2236;
+    --border: #253049;
+    --border-glow: #3b82f640;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --accent: #3b82f6;
+    --accent-glow: #3b82f680;
+    --green: #22c55e;
+    --green-glow: #22c55e50;
+    --red: #ef4444;
+    --red-glow: #ef444450;
+    --amber: #f59e0b;
+    --amber-glow: #f59e0b50;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-body: 'DM Sans', sans-serif;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, #3b82f608 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, #22c55e06 0%, transparent 50%),
+      linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--accent), #6366f1);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px var(--accent-glow);
+    flex-shrink: 0;
+  }
+
+  .logo svg { width: 28px; height: 28px; }
+
+  .header-text h1 {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--text), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header-text p {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    transition: border-color 0.4s;
+  }
+
+  .status-bar.connected {
+    border-color: var(--green);
+    box-shadow: 0 0 20px var(--green-glow);
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red-glow);
+    transition: all 0.4s;
+  }
+
+  .status-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green-glow);
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 8px var(--green-glow); }
+    50% { box-shadow: 0 0 16px var(--green-glow); }
+  }
+
+  .status-label {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .device-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--surface-raised);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  /* Connect button */
+  .btn {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+    border-radius: 10px;
+    padding: 10px 20px;
+    transition: all 0.25s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-connect {
+    background: linear-gradient(135deg, var(--accent), #6366f1);
+    color: white;
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+
+  .btn-connect:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px var(--accent-glow);
+  }
+
+  .btn-connect:active { transform: translateY(0); }
+
+  .btn-disconnect {
+    background: var(--surface-raised);
+    color: var(--red);
+    border: 1px solid #ef444440;
+  }
+
+  .btn-disconnect:hover {
+    background: #ef444415;
+    border-color: var(--red);
+  }
+
+  /* Panels */
+  .panels {
+    display: grid;
+    gap: 20px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title .icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.6;
+  }
+
+  .panel-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--surface-raised);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  /* Console / Terminal */
+  .console {
+    height: 320px;
+    overflow-y: auto;
+    padding: 14px 18px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.8;
+    scroll-behavior: smooth;
+  }
+
+  .console::-webkit-scrollbar { width: 6px; }
+  .console::-webkit-scrollbar-track { background: transparent; }
+  .console::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .console-line {
+    display: flex;
+    gap: 10px;
+    animation: line-in 0.2s ease-out;
+  }
+
+  @keyframes line-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .console-time {
+    color: var(--text-dim);
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  .console-dir {
+    font-weight: 600;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  .console-dir.rx { color: var(--green); }
+  .console-dir.tx { color: var(--accent); }
+  .console-dir.sys { color: var(--amber); }
+
+  .console-msg { color: var(--text); word-break: break-all; }
+
+  .console-empty {
+    color: var(--text-dim);
+    text-align: center;
+    padding: 80px 0;
+    font-size: 13px;
+  }
+
+  .console-empty span {
+    display: block;
+    margin-top: 8px;
+    font-size: 11px;
+    opacity: 0.5;
+  }
+
+  /* Send area */
+  .send-area {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border);
+  }
+
+  .send-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .send-input {
+    flex: 1;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.25s;
+  }
+
+  .send-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px #3b82f615;
+  }
+
+  .send-input::placeholder { color: var(--text-dim); }
+
+  .send-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-send {
+    background: var(--accent);
+    color: white;
+    padding: 10px 18px;
+  }
+
+  .btn-send:hover:not(:disabled) {
+    background: #2563eb;
+  }
+
+  .btn-send:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Options row */
+  .options-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    padding-left: 2px;
+  }
+
+  .option-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .option-check input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Quick actions */
+  .quick-actions {
+    padding: 14px 18px;
+  }
+
+  .quick-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+
+  .quick-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .btn-quick {
+    background: var(--surface-raised);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .btn-quick:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: #3b82f610;
+  }
+
+  .btn-quick:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Console toolbar */
+  .console-toolbar {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-icon {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .btn-icon:hover {
+    color: var(--text);
+    border-color: var(--border);
+    background: var(--surface-raised);
+  }
+
+  .btn-icon svg { width: 16px; height: 16px; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  .footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  /* Info banner */
+  .info-banner {
+    padding: 12px 18px;
+    background: #3b82f608;
+    border: 1px solid #3b82f620;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .info-banner svg {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+    margin-top: 1px;
+  }
+
+  .info-banner code {
+    background: var(--surface-raised);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  /* Bot Controller */
+  .controller-area {
+    padding: 24px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: 76px 76px 76px;
+    grid-template-rows: 76px 76px 76px;
+    gap: 6px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  .dpad-btn {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+  }
+
+  .dpad-btn svg { width: 22px; height: 22px; }
+
+  .dpad-btn:not(:disabled):hover {
+    border-color: var(--accent);
+    background: #3b82f610;
+  }
+
+  .dpad-btn:not(:disabled).active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: scale(0.95);
+  }
+
+  .dpad-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .dpad-up    { grid-column: 2; grid-row: 1; }
+  .dpad-left  { grid-column: 1; grid-row: 2; }
+  .dpad-stop  { grid-column: 2; grid-row: 2; }
+  .dpad-right { grid-column: 3; grid-row: 2; }
+  .dpad-down  { grid-column: 2; grid-row: 3; }
+
+  .dpad-stop:not(:disabled):hover {
+    border-color: var(--red);
+    background: #ef444410;
+  }
+
+  .dpad-stop:not(:disabled).active {
+    background: var(--red);
+    border-color: var(--red);
+    box-shadow: 0 0 20px var(--red-glow);
+  }
+
+  .ctrl-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--surface-raised);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .ctrl-status-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ctrl-status-value {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dim);
+    min-width: 80px;
+    text-align: center;
+    transition: color 0.2s;
+  }
+
+  .ctrl-status-value.active {
+    color: var(--accent);
+  }
+
+  .ctrl-status-value.stop {
+    color: var(--red);
+  }
+
+  /* Toggle buttons row */
+  .toggle-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    margin-bottom: 4px;
+  }
+
+  .btn-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s;
+    user-select: none;
+  }
+
+  .btn-toggle:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: #3b82f608;
+  }
+
+  .btn-toggle.open {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #3b82f60a;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent;
+    margin-bottom: 0;
+  }
+
+  .toggle-badge {
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 8px;
+    min-width: 18px;
+    text-align: center;
+    display: none;
+  }
+
+  .toggle-badge.visible {
+    display: inline-block;
+  }
+
+  .toggle-chevron {
+    transition: transform 0.25s;
+    margin-left: auto;
+  }
+
+  .btn-toggle.open .toggle-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Collapsible panels */
+  .collapsible-panel {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    margin-top: 0;
+    animation: panel-slide 0.25s ease-out;
+  }
+
+  @keyframes panel-slide {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 600px) {
+    .app { padding: 16px 12px 32px; }
+    .header-text h1 { font-size: 18px; }
+    .console { height: 260px; }
+    .status-bar { flex-wrap: wrap; gap: 10px; }
+    .device-name { order: 3; width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="10" rx="2"/>
+        <circle cx="8" cy="12" r="1.5" fill="white"/>
+        <circle cx="16" cy="12" r="1.5" fill="white"/>
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1>micro:bit BLE</h1>
+      <p>Bluetooth UART Dashboard</p>
+    </div>
+  </div>
+
+  <!-- Info banner -->
+  <div class="info-banner" id="infoBanner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+    <div>
+      Your micro:bit must be running a program with the <code>Bluetooth UART Service</code> enabled. 
+      Use MakeCode or Python to set this up. Pairing may be required — hold <code>A+B</code> then press reset on the micro:bit to enter pairing mode.
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="statusBar">
+    <div class="status-indicator">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="status-label" id="statusLabel">Disconnected</span>
+    </div>
+    <span class="device-name" id="deviceName" style="display:none;"></span>
+    <button class="btn btn-connect" id="connectBtn" onclick="toggleConnection()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5v11h-11"/></svg>
+      Connect
+    </button>
+  </div>
+
+  <!-- Bot Controller Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M12 8v8M8 12h8"/></svg>
+        Bot Controller
+      </div>
+      <span class="panel-badge" id="controlMode">WASD / arrows</span>
+    </div>
+    <div class="controller-area">
+      <div class="dpad">
+        <button class="dpad-btn dpad-up" id="btnUp" disabled
+          onmousedown="ctrlDown('F')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
+          ontouchstart="ctrlDown('F')" ontouchend="ctrlUp()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7-7 7 7"/></svg>
+          <span>FWD</span>
+        </button>
+        <button class="dpad-btn dpad-left" id="btnLeft" disabled
+          onmousedown="ctrlDown('L')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
+          ontouchstart="ctrlDown('L')" ontouchend="ctrlUp()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 5l-7 7 7 7"/></svg>
+          <span>L</span>
+        </button>
+        <button class="dpad-btn dpad-stop" id="btnStop" disabled
+          onmousedown="ctrlDown('S')" onmouseup="ctrlRelease()" onmouseleave="ctrlRelease()"
+          ontouchstart="ctrlDown('S')" ontouchend="ctrlRelease()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          <span>STOP</span>
+        </button>
+        <button class="dpad-btn dpad-right" id="btnRight" disabled
+          onmousedown="ctrlDown('R')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
+          ontouchstart="ctrlDown('R')" ontouchend="ctrlUp()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          <span>R</span>
+        </button>
+        <button class="dpad-btn dpad-down" id="btnDown" disabled
+          onmousedown="ctrlDown('B')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
+          ontouchstart="ctrlDown('B')" ontouchend="ctrlUp()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>
+          <span>REV</span>
+        </button>
+      </div>
+      <div class="ctrl-status">
+        <div class="ctrl-status-label">Active command</div>
+        <div class="ctrl-status-value" id="activeCmd">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toggle buttons row -->
+  <div class="toggle-row">
+    <button class="btn-toggle" id="toggleConsole" onclick="togglePanel('console')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Console
+      <span class="toggle-badge" id="consoleBadge">0</span>
+      <svg class="toggle-chevron" id="consoleChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <button class="btn-toggle" id="toggleQuick" onclick="togglePanel('quick')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Quick Send
+      <svg class="toggle-chevron" id="quickChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+  </div>
+
+  <!-- Console Panel (collapsible) -->
+  <div class="panel collapsible-panel" id="consolePanel" style="display:none;">
+    <div class="panel-header">
+      <div class="panel-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        Console
+      </div>
+      <div class="console-toolbar">
+        <span class="panel-badge" id="msgCount">0 messages</span>
+        <button class="btn-icon" onclick="clearConsole()" title="Clear console">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M5 6v14a2 2 0 002 2h10a2 2 0 002-2V6"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="console" id="console">
+      <div class="console-empty">
+        No data yet<span>Connect your micro:bit to start</span>
+      </div>
+    </div>
+    <div class="send-area">
+      <div class="send-row">
+        <input type="text" class="send-input" id="sendInput" placeholder="Type a message to send…" disabled onkeydown="if(event.key==='Enter')sendMessage()">
+        <button class="btn btn-send" id="sendBtn" disabled onclick="sendMessage()">Send</button>
+      </div>
+      <div class="options-row">
+        <label class="option-check">
+          <input type="checkbox" id="optNewline" checked> Append newline
+        </label>
+        <label class="option-check">
+          <input type="checkbox" id="optAutoscroll" checked> Auto-scroll
+        </label>
+        <label class="option-check">
+          <input type="checkbox" id="optTimestamp" checked> Timestamps
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Send Panel (collapsible) -->
+  <div class="panel collapsible-panel" id="quickPanel" style="display:none;">
+    <div class="quick-actions">
+      <div class="quick-label">Custom messages</div>
+      <div class="quick-btns">
+        <button class="btn btn-quick" disabled onclick="quickSend('hello')">hello</button>
+        <button class="btn btn-quick" disabled onclick="quickSend('on')">on</button>
+        <button class="btn btn-quick" disabled onclick="quickSend('off')">off</button>
+        <button class="btn btn-quick" disabled onclick="quickSend('ping')">ping</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Uses Web Bluetooth API &middot; Works in Chrome &amp; Edge
+  </div>
+
+</div>
+
+<script>
+// micro:bit Bluetooth Service UUIDs
+// Nordic UART Service (used by micro:bit for UART over BLE)
+const UART_SERVICE_UUID     = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_TX_CHAR_UUID     = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // Write to micro:bit (TX from our perspective)
+const UART_RX_CHAR_UUID     = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Receive from micro:bit (RX / Notify)
+
+// micro:bit specific event service (fallback for event-based communication)
+const EVENT_SERVICE_UUID    = 'e95d93af-251d-470a-a062-fa1922dfa9a8';
+const EVENT_CHAR_CLIENT_UUID = 'e95d5404-251d-470a-a062-fa1922dfa9a8';
+const EVENT_CHAR_MICROBIT_UUID = 'e95d9775-251d-470a-a062-fa1922dfa9a8';
+
+// All known micro:bit BLE services (for optionalServices so Chrome can discover them)
+const MICROBIT_SERVICES = [
+  UART_SERVICE_UUID,
+  EVENT_SERVICE_UUID,
+  'e95d0753-251d-470a-a062-fa1922dfa9a8', // Accelerometer
+  'e95d6100-251d-470a-a062-fa1922dfa9a8', // Device Information
+  'e95dd91d-251d-470a-a062-fa1922dfa9a8', // Temperature
+  'e95d9882-251d-470a-a062-fa1922dfa9a8', // Button
+  'e95dd822-251d-470a-a062-fa1922dfa9a8', // IO Pin
+  'e95df2d8-251d-470a-a062-fa1922dfa9a8', // LED
+];
+
+let device = null;
+let server = null;
+let txCharacteristic = null;
+let rxCharacteristic = null;
+let msgCount = 0;
+let rxBuffer = '';
+
+// ─── Connection ──────────────────────────────────
+
+async function toggleConnection() {
+  if (device && device.gatt.connected) {
+    disconnect();
+  } else {
+    await connect();
+  }
+}
+
+async function connect() {
+  try {
+    updateStatus('scanning');
+    logSystem('Scanning for micro:bit devices…');
+
+    // Use namePrefix filter — the micro:bit doesn't always advertise service UUIDs,
+    // so filtering by service can fail. We list all known services in optionalServices
+    // to ensure Chrome allows us to access them after connection.
+    device = await navigator.bluetooth.requestDevice({
+      filters: [
+        { namePrefix: 'BBC micro:bit' }
+      ],
+      optionalServices: MICROBIT_SERVICES
+    });
+
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+
+    logSystem('Connecting to ' + device.name + '…');
+    updateStatus('connecting');
+
+    server = await device.gatt.connect();
+    logSystem('Connected to GATT server. Discovering services…');
+
+    // Try to find the UART service
+    let service = null;
+    try {
+      service = await server.getPrimaryService(UART_SERVICE_UUID);
+      logSystem('UART service found.');
+    } catch (e) {
+      logSystem('UART service not found on this device.');
+      logSystem('');
+      logSystem('⚠ Your micro:bit firmware must include the Bluetooth UART Service.');
+      logSystem('In MakeCode: add the "bluetooth" extension, then use');
+      logSystem('"bluetooth uart service" block in "on start".');
+      logSystem('Also set Project Settings → No Pairing Required.');
+      logSystem('');
+
+      // List what services ARE available for debugging
+      try {
+        const services = await server.getPrimaryServices();
+        if (services.length > 0) {
+          logSystem('Available services on this device:');
+          for (const s of services) {
+            logSystem('  • ' + s.uuid);
+          }
+        } else {
+          logSystem('No services discovered. The micro:bit may need pairing first.');
+          logSystem('Hold A+B, press reset, then pair via your OS Bluetooth settings.');
+        }
+      } catch (listErr) {
+        logSystem('Could not list services: ' + listErr.message);
+      }
+
+      updateStatus('disconnected');
+      device.gatt.disconnect();
+      return;
+    }
+
+    // Discover all characteristics in the UART service
+    let characteristics;
+    try {
+      characteristics = await service.getCharacteristics();
+      logSystem('Found ' + characteristics.length + ' characteristic(s):');
+      for (const c of characteristics) {
+        const props = [];
+        if (c.properties.read) props.push('read');
+        if (c.properties.write) props.push('write');
+        if (c.properties.writeWithoutResponse) props.push('writeNoResp');
+        if (c.properties.notify) props.push('notify');
+        if (c.properties.indicate) props.push('indicate');
+        logSystem('  • ' + c.uuid + ' [' + props.join(', ') + ']');
+      }
+    } catch (e) {
+      logSystem('Could not enumerate characteristics: ' + e.message);
+      updateStatus('disconnected');
+      device.gatt.disconnect();
+      return;
+    }
+
+    // Find the writable characteristic (TX — we send data to micro:bit)
+    // and the notify characteristic (RX — micro:bit sends data to us)
+    let writeChar = null;
+    let notifyChar = null;
+
+    for (const c of characteristics) {
+      if (c.properties.write || c.properties.writeWithoutResponse) {
+        writeChar = c;
+      }
+      if (c.properties.notify || c.properties.indicate) {
+        notifyChar = c;
+      }
+    }
+
+    // Fallback: try by UUID if property detection didn't find both
+    if (!writeChar) {
+      try { writeChar = await service.getCharacteristic(UART_TX_CHAR_UUID); } catch(e) {}
+    }
+    if (!writeChar) {
+      try { writeChar = await service.getCharacteristic(UART_RX_CHAR_UUID); } catch(e) {}
+    }
+    if (!notifyChar) {
+      try {
+        const c = await service.getCharacteristic(UART_RX_CHAR_UUID);
+        if (c.properties.notify || c.properties.indicate) notifyChar = c;
+      } catch(e) {}
+    }
+    if (!notifyChar) {
+      try {
+        const c = await service.getCharacteristic(UART_TX_CHAR_UUID);
+        if (c.properties.notify || c.properties.indicate) notifyChar = c;
+      } catch(e) {}
+    }
+
+    if (writeChar) {
+      txCharacteristic = writeChar;
+      logSystem('TX ready → ' + writeChar.uuid.substring(4, 8));
+    } else {
+      logSystem('⚠ No writable characteristic found. Sending will be disabled.');
+    }
+
+    if (notifyChar) {
+      rxCharacteristic = notifyChar;
+      try {
+        await rxCharacteristic.startNotifications();
+        rxCharacteristic.addEventListener('characteristicvaluechanged', onRxData);
+        logSystem('RX ready ← ' + notifyChar.uuid.substring(4, 8) + ' (notifications on)');
+      } catch (notifyErr) {
+        logSystem('⚠ Could not start notifications: ' + notifyErr.message);
+        rxCharacteristic = null;
+      }
+    } else {
+      logSystem('⚠ No notify characteristic found. Receiving will be disabled.');
+    }
+
+    if (!writeChar && !notifyChar) {
+      logSystem('');
+      logSystem('⚠ No usable characteristics. Make sure your micro:bit');
+      logSystem('  program uses "bluetooth uart service" in on start.');
+      updateStatus('disconnected');
+      device.gatt.disconnect();
+      return;
+    }
+
+    updateStatus('connected', device.name);
+    logSystem('✓ Ready — send and receive data below.');
+    setControlsEnabled(true);
+
+  } catch (err) {
+    if (err.name === 'NotFoundError') {
+      logSystem('No device selected.');
+    } else if (err.name === 'SecurityError') {
+      logSystem('Bluetooth permission denied. Please allow Bluetooth access.');
+    } else if (err.name === 'NetworkError') {
+      logSystem('Connection failed. Make sure the micro:bit is powered on and in range.');
+      logSystem('Try resetting the micro:bit and reconnecting.');
+    } else {
+      logSystem('Error: ' + err.message);
+      console.error(err);
+    }
+    updateStatus('disconnected');
+  }
+}
+
+function disconnect() {
+  if (device && device.gatt.connected) {
+    device.gatt.disconnect();
+  }
+}
+
+function onDisconnected() {
+  logSystem('Device disconnected.');
+  updateStatus('disconnected');
+  setControlsEnabled(false);
+  txCharacteristic = null;
+  rxCharacteristic = null;
+  server = null;
+}
+
+// ─── Data Handling ───────────────────────────────
+
+function onRxData(event) {
+  const value = event.target.value;
+  const decoded = new TextDecoder().decode(value);
+
+  // Buffer incoming data and split on newlines
+  rxBuffer += decoded;
+  const lines = rxBuffer.split('\n');
+
+  // Process complete lines, keep the last (possibly incomplete) chunk
+  for (let i = 0; i < lines.length - 1; i++) {
+    const line = lines[i].replace(/\r$/, '');
+    if (line.length > 0) {
+      logMessage('rx', line);
+    }
+  }
+  rxBuffer = lines[lines.length - 1];
+
+  // If no newline in data, flush the buffer directly after a short delay
+  // to handle micro:bit programs that don't send newlines
+  clearTimeout(onRxData._flushTimer);
+  onRxData._flushTimer = setTimeout(() => {
+    if (rxBuffer.length > 0) {
+      logMessage('rx', rxBuffer);
+      rxBuffer = '';
+    }
+  }, 200);
+}
+
+async function sendMessage() {
+  const input = document.getElementById('sendInput');
+  let text = input.value.trim();
+  if (!text || !txCharacteristic) return;
+
+  const appendNewline = document.getElementById('optNewline').checked;
+  const payload = text + (appendNewline ? '\n' : '');
+
+  try {
+    const encoded = new TextEncoder().encode(payload);
+    // BLE packets max 20 bytes, chunk if necessary
+    for (let i = 0; i < encoded.length; i += 20) {
+      const chunk = encoded.slice(i, i + 20);
+      // Use the correct write method based on characteristic properties
+      if (txCharacteristic.properties.writeWithoutResponse) {
+        await txCharacteristic.writeValueWithoutResponse(chunk);
+      } else {
+        await txCharacteristic.writeValueWithResponse(chunk);
+      }
+    }
+    logMessage('tx', text);
+    input.value = '';
+    input.focus();
+  } catch (err) {
+    logSystem('Send error: ' + err.message);
+  }
+}
+
+function quickSend(msg) {
+  document.getElementById('sendInput').value = msg;
+  sendMessage();
+}
+
+// ─── Console Logging ─────────────────────────────
+
+function logMessage(dir, text) {
+  const con = document.getElementById('console');
+
+  // Remove empty state
+  const empty = con.querySelector('.console-empty');
+  if (empty) empty.remove();
+
+  const line = document.createElement('div');
+  line.className = 'console-line';
+
+  const showTime = document.getElementById('optTimestamp').checked;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-GB', { hour12: false }) +
+                  '.' + String(now.getMilliseconds()).padStart(3, '0');
+
+  line.innerHTML =
+    (showTime ? `<span class="console-time">${timeStr}</span>` : '') +
+    `<span class="console-dir ${dir}">${dir === 'rx' ? 'RX ←' : 'TX →'}</span>` +
+    `<span class="console-msg">${escapeHtml(text)}</span>`;
+
+  con.appendChild(line);
+  msgCount++;
+  document.getElementById('msgCount').textContent = msgCount + ' message' + (msgCount !== 1 ? 's' : '');
+  updateConsoleBadge();
+
+  if (document.getElementById('optAutoscroll').checked) {
+    con.scrollTop = con.scrollHeight;
+  }
+}
+
+function logSystem(text) {
+  const con = document.getElementById('console');
+  const empty = con.querySelector('.console-empty');
+  if (empty) empty.remove();
+
+  const line = document.createElement('div');
+  line.className = 'console-line';
+
+  const showTime = document.getElementById('optTimestamp').checked;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-GB', { hour12: false }) +
+                  '.' + String(now.getMilliseconds()).padStart(3, '0');
+
+  line.innerHTML =
+    (showTime ? `<span class="console-time">${timeStr}</span>` : '') +
+    `<span class="console-dir sys">SYS ●</span>` +
+    `<span class="console-msg">${escapeHtml(text)}</span>`;
+
+  con.appendChild(line);
+
+  if (document.getElementById('optAutoscroll').checked) {
+    con.scrollTop = con.scrollHeight;
+  }
+}
+
+function clearConsole() {
+  const con = document.getElementById('console');
+  con.innerHTML = '<div class="console-empty">Console cleared<span>Waiting for data…</span></div>';
+  msgCount = 0;
+  document.getElementById('msgCount').textContent = '0 messages';
+}
+
+// ─── UI Helpers ──────────────────────────────────
+
+function updateStatus(state, name) {
+  const bar = document.getElementById('statusBar');
+  const dot = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
+  const nameEl = document.getElementById('deviceName');
+  const btn = document.getElementById('connectBtn');
+
+  bar.classList.toggle('connected', state === 'connected');
+  dot.classList.toggle('connected', state === 'connected');
+
+  if (state === 'connected') {
+    label.textContent = 'Connected';
+    nameEl.textContent = name;
+    nameEl.style.display = 'inline-block';
+    btn.className = 'btn btn-disconnect';
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Disconnect`;
+  } else if (state === 'scanning' || state === 'connecting') {
+    label.textContent = state === 'scanning' ? 'Scanning…' : 'Connecting…';
+    nameEl.style.display = 'none';
+  } else {
+    label.textContent = 'Disconnected';
+    nameEl.style.display = 'none';
+    btn.className = 'btn btn-connect';
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5v11h-11"/></svg> Connect`;
+  }
+}
+
+function setControlsEnabled(enabled) {
+  document.getElementById('sendInput').disabled = !enabled;
+  document.getElementById('sendBtn').disabled = !enabled;
+  document.querySelectorAll('.btn-quick').forEach(b => b.disabled = !enabled);
+  document.querySelectorAll('.dpad-btn').forEach(b => b.disabled = !enabled);
+  if (!enabled) {
+    document.getElementById('activeCmd').textContent = '—';
+    document.getElementById('activeCmd').className = 'ctrl-status-value';
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ─── Bot Controller ──────────────────────────────
+
+const CMD_LABELS = {
+  'F': 'Forward',
+  'B': 'Reverse',
+  'L': 'Left',
+  'R': 'Right',
+  'S': 'Stop'
+};
+
+const CMD_BTN_MAP = {
+  'F': 'btnUp',
+  'B': 'btnDown',
+  'L': 'btnLeft',
+  'R': 'btnRight',
+  'S': 'btnStop'
+};
+
+let activeDirection = null;
+let holdInterval = null;
+
+function ctrlDown(cmd) {
+  if (!txCharacteristic) return;
+
+  // Clear any existing hold
+  ctrlRelease();
+
+  activeDirection = cmd;
+
+  // Highlight the active button
+  Object.values(CMD_BTN_MAP).forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(CMD_BTN_MAP[cmd]).classList.add('active');
+
+  // Update status indicator
+  const statusEl = document.getElementById('activeCmd');
+  statusEl.textContent = CMD_LABELS[cmd];
+  statusEl.className = 'ctrl-status-value ' + (cmd === 'S' ? 'stop' : 'active');
+
+  // Send immediately
+  quickSend(cmd);
+
+  // For movement commands (not stop), keep sending while held
+  if (cmd !== 'S') {
+    holdInterval = setInterval(() => {
+      quickSend(cmd);
+    }, 200);
+  }
+}
+
+function ctrlUp() {
+  // When a movement button is released, send stop
+  if (activeDirection && activeDirection !== 'S') {
+    ctrlRelease();
+    ctrlDown('S');
+    // Auto-clear stop highlight after a moment
+    setTimeout(() => {
+      ctrlRelease();
+    }, 300);
+  }
+}
+
+function ctrlRelease() {
+  if (holdInterval) {
+    clearInterval(holdInterval);
+    holdInterval = null;
+  }
+  activeDirection = null;
+  Object.values(CMD_BTN_MAP).forEach(id => document.getElementById(id).classList.remove('active'));
+}
+
+// ─── Keyboard Controls ──────────────────────────
+
+const KEY_MAP = {
+  'ArrowUp':    'F', 'w': 'F', 'W': 'F',
+  'ArrowDown':  'B', 's': 'B', 'S': 'B',
+  'ArrowLeft':  'L', 'a': 'L', 'A': 'L',
+  'ArrowRight': 'R', 'd': 'R', 'D': 'R',
+  ' ':          'S',
+};
+
+const keysHeld = new Set();
+
+document.addEventListener('keydown', (e) => {
+  // Don't capture if typing in the send input
+  if (e.target.id === 'sendInput') return;
+
+  const cmd = KEY_MAP[e.key];
+  if (!cmd || !txCharacteristic) return;
+
+  e.preventDefault();
+
+  if (keysHeld.has(e.key)) return; // Already held
+  keysHeld.add(e.key);
+
+  ctrlDown(cmd);
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.target.id === 'sendInput') return;
+
+  const cmd = KEY_MAP[e.key];
+  if (!cmd) return;
+
+  keysHeld.delete(e.key);
+
+  if (cmd !== 'S') {
+    ctrlUp();
+  } else {
+    ctrlRelease();
+  }
+});
+
+// ─── Collapsible Panels ──────────────────────────
+
+function togglePanel(name) {
+  const panel = document.getElementById(name + 'Panel');
+  const btn = document.getElementById('toggle' + name.charAt(0).toUpperCase() + name.slice(1));
+
+  if (panel.style.display === 'none') {
+    panel.style.display = '';
+    btn.classList.add('open');
+    // Scroll console to bottom when opened
+    if (name === 'console') {
+      const con = document.getElementById('console');
+      con.scrollTop = con.scrollHeight;
+    }
+  } else {
+    panel.style.display = 'none';
+    btn.classList.remove('open');
+  }
+}
+
+function updateConsoleBadge() {
+  const badge = document.getElementById('consoleBadge');
+  const panel = document.getElementById('consolePanel');
+  if (panel.style.display === 'none' && msgCount > 0) {
+    badge.textContent = msgCount > 99 ? '99+' : msgCount;
+    badge.classList.add('visible');
+  } else {
+    badge.classList.remove('visible');
+  }
+}
+
+// ─── Web Bluetooth Support Check ─────────────────
+
+if (!navigator.bluetooth) {
+  document.getElementById('infoBanner').innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    <div style="color:var(--red);">
+      <strong>Web Bluetooth is not supported</strong> in this browser. Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on desktop, or Chrome on Android.
+    </div>
+  `;
+  document.getElementById('connectBtn').disabled = true;
+  document.getElementById('connectBtn').style.opacity = '0.3';
+}
+</script>
+</body>
+</html>
