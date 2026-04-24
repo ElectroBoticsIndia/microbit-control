@@ -760,34 +760,24 @@
       <span class="panel-badge" id="controlMode">WASD / arrows</span>
     </div>
     <div class="controller-area">
-      <div class="dpad">
-        <button class="dpad-btn dpad-up" id="btnUp" disabled
-          onmousedown="ctrlDown('F')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
-          ontouchstart="ctrlDown('F')" ontouchend="ctrlUp()">
+      <div class="dpad" id="dpad">
+        <button class="dpad-btn dpad-up" id="btnUp" disabled data-cmd="F">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7-7 7 7"/></svg>
           <span>FWD</span>
         </button>
-        <button class="dpad-btn dpad-left" id="btnLeft" disabled
-          onmousedown="ctrlDown('L')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
-          ontouchstart="ctrlDown('L')" ontouchend="ctrlUp()">
+        <button class="dpad-btn dpad-left" id="btnLeft" disabled data-cmd="L">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 5l-7 7 7 7"/></svg>
           <span>L</span>
         </button>
-        <button class="dpad-btn dpad-stop" id="btnStop" disabled
-          onmousedown="ctrlDown('S')" onmouseup="ctrlRelease()" onmouseleave="ctrlRelease()"
-          ontouchstart="ctrlDown('S')" ontouchend="ctrlRelease()">
+        <button class="dpad-btn dpad-stop" id="btnStop" disabled data-cmd="S">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
           <span>STOP</span>
         </button>
-        <button class="dpad-btn dpad-right" id="btnRight" disabled
-          onmousedown="ctrlDown('R')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
-          ontouchstart="ctrlDown('R')" ontouchend="ctrlUp()">
+        <button class="dpad-btn dpad-right" id="btnRight" disabled data-cmd="R">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
           <span>R</span>
         </button>
-        <button class="dpad-btn dpad-down" id="btnDown" disabled
-          onmousedown="ctrlDown('B')" onmouseup="ctrlUp()" onmouseleave="ctrlUp()"
-          ontouchstart="ctrlDown('B')" ontouchend="ctrlUp()">
+        <button class="dpad-btn dpad-down" id="btnDown" disabled data-cmd="B">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>
           <span>REV</span>
         </button>
@@ -1282,17 +1272,17 @@ const CMD_BTN_MAP = {
 };
 
 let activeDirection = null;
-let holdInterval = null;
+let isTouching = false;
 
-function ctrlDown(cmd) {
+// Send a command ONCE — no repeating, no flooding
+function sendCommand(cmd) {
   if (!txCharacteristic) return;
-
-  // Clear any existing hold
-  ctrlRelease();
+  // Only send if the command is different from current
+  if (cmd === activeDirection && cmd !== 'S') return;
 
   activeDirection = cmd;
 
-  // Highlight the active button
+  // Update button highlights
   Object.values(CMD_BTN_MAP).forEach(id => document.getElementById(id).classList.remove('active'));
   document.getElementById(CMD_BTN_MAP[cmd]).classList.add('active');
 
@@ -1301,77 +1291,109 @@ function ctrlDown(cmd) {
   statusEl.textContent = CMD_LABELS[cmd];
   statusEl.className = 'ctrl-status-value ' + (cmd === 'S' ? 'stop' : 'active');
 
-  // Send immediately
+  // Send command once
   quickSend(cmd);
-
-  // For movement commands (not stop), keep sending while held
-  if (cmd !== 'S') {
-    holdInterval = setInterval(() => {
-      quickSend(cmd);
-    }, 200);
-  }
 }
 
-function ctrlUp() {
-  // When a movement button is released, send stop
+function stopMovement() {
   if (activeDirection && activeDirection !== 'S') {
-    ctrlRelease();
-    ctrlDown('S');
-    // Auto-clear stop highlight after a moment
-    setTimeout(() => {
-      ctrlRelease();
-    }, 300);
+    sendCommand('S');
   }
+  // Clear highlight after a moment for stop button
+  setTimeout(() => {
+    if (activeDirection === 'S') {
+      Object.values(CMD_BTN_MAP).forEach(id => document.getElementById(id).classList.remove('active'));
+    }
+  }, 300);
 }
 
-function ctrlRelease() {
-  if (holdInterval) {
-    clearInterval(holdInterval);
-    holdInterval = null;
-  }
-  activeDirection = null;
-  Object.values(CMD_BTN_MAP).forEach(id => document.getElementById(id).classList.remove('active'));
-}
+// ─── Touch & Mouse Event Setup ──────────────────
+// Separate touch and mouse to prevent double-firing on mobile
+
+document.addEventListener('DOMContentLoaded', () => {
+  const dpadBtns = document.querySelectorAll('.dpad-btn[data-cmd]');
+
+  dpadBtns.forEach(btn => {
+    const cmd = btn.dataset.cmd;
+
+    // Touch events — primary on mobile
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // Prevent mouse events from also firing
+      isTouching = true;
+      if (cmd === 'S') {
+        sendCommand('S');
+      } else {
+        sendCommand(cmd);
+      }
+    }, { passive: false });
+
+    btn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      isTouching = false;
+      // Don't auto-stop on release — bot keeps moving until Stop is pressed
+      // Only clear stop button highlight
+      if (cmd === 'S') {
+        setTimeout(() => {
+          document.getElementById(CMD_BTN_MAP['S']).classList.remove('active');
+        }, 300);
+      }
+    }, { passive: false });
+
+    btn.addEventListener('touchcancel', (e) => {
+      isTouching = false;
+    });
+
+    // Mouse events — primary on desktop
+    btn.addEventListener('mousedown', (e) => {
+      if (isTouching) return; // Skip if touch already handled it
+      if (cmd === 'S') {
+        sendCommand('S');
+      } else {
+        sendCommand(cmd);
+      }
+    });
+
+    btn.addEventListener('mouseup', (e) => {
+      if (isTouching) return;
+      if (cmd === 'S') {
+        setTimeout(() => {
+          document.getElementById(CMD_BTN_MAP['S']).classList.remove('active');
+        }, 300);
+      }
+    });
+  });
+});
 
 // ─── Keyboard Controls ──────────────────────────
 
 const KEY_MAP = {
   'ArrowUp':    'F', 'w': 'F', 'W': 'F',
-  'ArrowDown':  'B', 's': 'B', 'S': 'B',
+  'ArrowDown':  'B', 's': 'B',
   'ArrowLeft':  'L', 'a': 'L', 'A': 'L',
   'ArrowRight': 'R', 'd': 'R', 'D': 'R',
   ' ':          'S',
 };
 
-const keysHeld = new Set();
-
 document.addEventListener('keydown', (e) => {
-  // Don't capture if typing in the send input
   if (e.target.id === 'sendInput') return;
-
+  // Don't capture 'S' key as stop — it conflicts with typing
+  if (e.key === 's' || e.key === 'S') {
+    if (e.target.tagName === 'INPUT') return;
+  }
   const cmd = KEY_MAP[e.key];
   if (!cmd || !txCharacteristic) return;
-
   e.preventDefault();
-
-  if (keysHeld.has(e.key)) return; // Already held
-  keysHeld.add(e.key);
-
-  ctrlDown(cmd);
+  sendCommand(cmd);
 });
 
+// No auto-stop on key release — bot keeps moving until Stop is pressed
+// Space bar sends stop
 document.addEventListener('keyup', (e) => {
-  if (e.target.id === 'sendInput') return;
-
-  const cmd = KEY_MAP[e.key];
-  if (!cmd) return;
-
-  keysHeld.delete(e.key);
-
-  if (cmd !== 'S') {
-    ctrlUp();
-  } else {
-    ctrlRelease();
+  // Only stop highlight on stop key release
+  if (e.key === ' ') {
+    setTimeout(() => {
+      document.getElementById(CMD_BTN_MAP['S']).classList.remove('active');
+    }, 300);
   }
 });
 
