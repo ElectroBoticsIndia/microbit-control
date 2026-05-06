@@ -699,6 +699,107 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
+  /* Joystick */
+  .joystick-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .joystick-base {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: var(--surface-raised);
+    border: 2px solid var(--border);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .joystick-zone {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+
+  .joystick-zone-up {
+    top: 0; left: 25%; right: 25%; height: 40%;
+    background: radial-gradient(ellipse at center bottom, #008fa020, transparent);
+  }
+
+  .joystick-zone-down {
+    bottom: 0; left: 25%; right: 25%; height: 40%;
+    background: radial-gradient(ellipse at center top, #008fa020, transparent);
+  }
+
+  .joystick-zone-left {
+    left: 0; top: 25%; bottom: 25%; width: 40%;
+    background: radial-gradient(ellipse at right center, #008fa020, transparent);
+  }
+
+  .joystick-zone-right {
+    right: 0; top: 25%; bottom: 25%; width: 40%;
+    background: radial-gradient(ellipse at left center, #008fa020, transparent);
+  }
+
+  .joystick-center-zone {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    border: 2px dashed var(--border);
+    pointer-events: none;
+  }
+
+  .joystick-knob {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #00b5c9);
+    box-shadow: 0 4px 20px var(--accent-glow);
+    cursor: grab;
+    transition: box-shadow 0.2s;
+    z-index: 5;
+  }
+
+  .joystick-knob:active, .joystick-knob.active {
+    cursor: grabbing;
+    box-shadow: 0 6px 28px var(--accent-glow);
+  }
+
+  .joystick-knob.dir-active {
+    background: linear-gradient(135deg, var(--green), #a0d800);
+    box-shadow: 0 4px 20px var(--green-glow);
+  }
+
+  .joystick-knob.dir-stop {
+    background: linear-gradient(135deg, var(--red), #e07860);
+    box-shadow: 0 4px 20px var(--red-glow);
+  }
+
+  .joystick-label-up, .joystick-label-down, .joystick-label-left, .joystick-label-right {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    pointer-events: none;
+    letter-spacing: 0.5px;
+  }
+
+  .joystick-label-up { top: 12px; left: 50%; transform: translateX(-50%); }
+  .joystick-label-down { bottom: 12px; left: 50%; transform: translateX(-50%); }
+  .joystick-label-left { left: 14px; top: 50%; transform: translateY(-50%); }
+  .joystick-label-right { right: 14px; top: 50%; transform: translateY(-50%); }
+
   /* Servo Sliders */
   .servo-panel {
     margin-top: 20px;
@@ -882,9 +983,11 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M12 8v8M8 12h8"/></svg>
         Bot Controller
       </div>
-      <span class="panel-badge" id="controlMode">WASD / arrows</span>
+      <span class="panel-badge" id="controlMode" style="cursor:pointer;user-select:none;" onclick="toggleControlMode()">
+        <span id="modeLabel">D-Pad</span> ⇄
+      </span>
     </div>
-    <div class="controller-area">
+    <div class="controller-area" id="dpadArea">
       <div class="dpad" id="dpad">
         <button class="dpad-btn dpad-up" id="btnUp" disabled data-cmd="F">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7-7 7 7"/></svg>
@@ -910,6 +1013,28 @@
       <div class="ctrl-status">
         <div class="ctrl-status-label">Active command</div>
         <div class="ctrl-status-value" id="activeCmd">—</div>
+      </div>
+    </div>
+
+    <!-- Joystick Area (hidden by default) -->
+    <div class="controller-area" id="joystickArea" style="display:none;">
+      <div class="joystick-container" id="joystickContainer">
+        <div class="joystick-base" id="joystickBase">
+          <div class="joystick-zone joystick-zone-up"></div>
+          <div class="joystick-zone joystick-zone-down"></div>
+          <div class="joystick-zone joystick-zone-left"></div>
+          <div class="joystick-zone joystick-zone-right"></div>
+          <div class="joystick-center-zone"></div>
+          <div class="joystick-knob" id="joystickKnob"></div>
+          <div class="joystick-label-up">FWD</div>
+          <div class="joystick-label-down">REV</div>
+          <div class="joystick-label-left">L</div>
+          <div class="joystick-label-right">R</div>
+        </div>
+      </div>
+      <div class="ctrl-status">
+        <div class="ctrl-status-label">Active command</div>
+        <div class="ctrl-status-value" id="activeCmdJoy">—</div>
       </div>
     </div>
   </div>
@@ -1417,6 +1542,146 @@ function setServo(value) {
   document.getElementById('servo1').value = value;
   onServoChange(value);
   onServoSend(value);
+}
+
+// ─── Control Mode Toggle ─────────────────────────
+
+let controlMode = 'dpad'; // 'dpad' or 'joystick'
+
+function toggleControlMode() {
+  if (controlMode === 'dpad') {
+    controlMode = 'joystick';
+    document.getElementById('dpadArea').style.display = 'none';
+    document.getElementById('joystickArea').style.display = '';
+    document.getElementById('modeLabel').textContent = 'Joystick';
+    initJoystick();
+  } else {
+    controlMode = 'dpad';
+    document.getElementById('dpadArea').style.display = '';
+    document.getElementById('joystickArea').style.display = 'none';
+    document.getElementById('modeLabel').textContent = 'D-Pad';
+  }
+}
+
+// ─── Joystick ────────────────────────────────────
+
+let joystickActive = false;
+let joystickLastCmd = null;
+
+function initJoystick() {
+  const base = document.getElementById('joystickBase');
+  const knob = document.getElementById('joystickKnob');
+
+  if (base._joystickInit) return; // Already initialized
+  base._joystickInit = true;
+
+  const getPos = (e) => {
+    const rect = base.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    let clientX, clientY;
+    if (e.touches) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    let dx = clientX - rect.left - centerX;
+    let dy = clientY - rect.top - centerY;
+    const maxR = centerX - 30; // Keep knob inside base
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > maxR) {
+      dx = (dx / dist) * maxR;
+      dy = (dy / dist) * maxR;
+    }
+    return { dx, dy, dist: Math.min(dist, maxR), maxR };
+  };
+
+  const getDirection = (dx, dy, dist, maxR) => {
+    const deadzone = maxR * 0.25;
+    if (dist < deadzone) return 'S';
+    const angle = Math.atan2(-dy, dx) * (180 / Math.PI); // -dy because y is inverted
+    if (angle > 45 && angle <= 135) return 'F';
+    if (angle > -45 && angle <= 45) return 'R';
+    if (angle > -135 && angle <= -45) return 'B';
+    return 'L';
+  };
+
+  const updateKnob = (dx, dy) => {
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  };
+
+  const updateStatus = (cmd) => {
+    const statusEl = document.getElementById('activeCmdJoy');
+    const labels = { F: 'Forward', B: 'Reverse', L: 'Left', R: 'Right', S: 'Stop' };
+    statusEl.textContent = labels[cmd] || '—';
+    statusEl.className = 'ctrl-status-value ' + (cmd === 'S' ? 'stop' : cmd ? 'active' : '');
+
+    knob.classList.remove('dir-active', 'dir-stop');
+    if (cmd === 'S' || !cmd) knob.classList.add('dir-stop');
+    else knob.classList.add('dir-active');
+  };
+
+  const onMove = (e) => {
+    if (!joystickActive) return;
+    e.preventDefault();
+    const { dx, dy, dist, maxR } = getPos(e);
+    updateKnob(dx, dy);
+    const cmd = getDirection(dx, dy, dist, maxR);
+    if (cmd !== joystickLastCmd) {
+      joystickLastCmd = cmd;
+      if (txCharacteristic) quickSend(cmd);
+      updateStatus(cmd);
+    }
+  };
+
+  const onStart = (e) => {
+    e.preventDefault();
+    joystickActive = true;
+    knob.classList.add('active');
+    onMove(e);
+  };
+
+  const onEnd = (e) => {
+    e.preventDefault();
+    joystickActive = false;
+    knob.classList.remove('active');
+    updateKnob(0, 0);
+    if (joystickLastCmd !== 'S') {
+      joystickLastCmd = 'S';
+      if (txCharacteristic) quickSend('S');
+      updateStatus('S');
+    }
+    // Clear status after a moment
+    setTimeout(() => {
+      if (!joystickActive) {
+        updateStatus(null);
+        document.getElementById('activeCmdJoy').textContent = '—';
+        document.getElementById('activeCmdJoy').className = 'ctrl-status-value';
+        knob.classList.remove('dir-active', 'dir-stop');
+      }
+    }, 500);
+  };
+
+  // Touch events
+  base.addEventListener('touchstart', onStart, { passive: false });
+  base.addEventListener('touchmove', onMove, { passive: false });
+  base.addEventListener('touchend', onEnd, { passive: false });
+  base.addEventListener('touchcancel', onEnd, { passive: false });
+
+  // Mouse events
+  base.addEventListener('mousedown', (e) => {
+    onStart(e);
+    const moveHandler = (ev) => onMove(ev);
+    const upHandler = (ev) => {
+      onEnd(ev);
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('mouseup', upHandler);
+    };
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('mouseup', upHandler);
+  });
 }
 
 // ─── Bot Controller ──────────────────────────────
