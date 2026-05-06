@@ -699,6 +699,131 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
+  /* Servo Sliders */
+  .servo-panel {
+    margin-top: 20px;
+  }
+
+  .servo-area {
+    padding: 18px 22px;
+  }
+
+  .servo-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 12px 16px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    flex-wrap: wrap;
+  }
+
+  .servo-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .servo-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    min-width: 50px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .servo-slider {
+    flex: 1;
+    min-width: 100px;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .servo-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 2px 8px var(--accent-glow);
+    border: 3px solid var(--surface);
+    transition: all 0.15s;
+  }
+
+  .servo-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 14px var(--accent-glow);
+  }
+
+  .servo-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 2px 8px var(--accent-glow);
+    border: 3px solid var(--surface);
+  }
+
+  .servo-slider:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .servo-value {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  .servo-value span {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+
+  .servo-quick-btns {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .btn-servo-quick {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-servo-quick:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-servo-quick:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
   @media (max-width: 600px) {
     .app { padding: 16px 12px 32px; }
     .header {
@@ -785,6 +910,29 @@
       <div class="ctrl-status">
         <div class="ctrl-status-label">Active command</div>
         <div class="ctrl-status-value" id="activeCmd">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Servo Sliders Panel -->
+  <div class="panel servo-panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        Slider Controls
+      </div>
+      <span class="panel-badge">0° — 180°</span>
+    </div>
+    <div class="servo-area">
+      <div class="servo-row">
+        <div class="servo-label">Slider</div>
+        <input type="range" class="servo-slider" id="servo1" min="0" max="180" value="90" disabled oninput="onServoChange(this.value)" onchange="onServoSend(this.value)">
+        <div class="servo-value" id="servo1Val">90<span>°</span></div>
+        <div class="servo-quick-btns">
+          <button class="btn-servo-quick" disabled onclick="setServo(0)">0°</button>
+          <button class="btn-servo-quick" disabled onclick="setServo(90)">90°</button>
+          <button class="btn-servo-quick" disabled onclick="setServo(180)">180°</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1241,6 +1389,8 @@ function setControlsEnabled(enabled) {
   document.getElementById('sendBtn').disabled = !enabled;
   document.querySelectorAll('.btn-quick').forEach(b => b.disabled = !enabled);
   document.querySelectorAll('.dpad-btn').forEach(b => b.disabled = !enabled);
+  document.querySelectorAll('.servo-slider').forEach(s => s.disabled = !enabled);
+  document.querySelectorAll('.btn-servo-quick').forEach(b => b.disabled = !enabled);
   if (!enabled) {
     document.getElementById('activeCmd').textContent = '—';
     document.getElementById('activeCmd').className = 'ctrl-status-value';
@@ -1251,6 +1401,22 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ─── Servo Control ───────────────────────────────
+
+function onServoChange(value) {
+  document.getElementById('servo1Val').innerHTML = value + '<span>°</span>';
+}
+
+function onServoSend(value) {
+  quickSend(value);
+}
+
+function setServo(value) {
+  document.getElementById('servo1').value = value;
+  onServoChange(value);
+  onServoSend(value);
 }
 
 // ─── Bot Controller ──────────────────────────────
