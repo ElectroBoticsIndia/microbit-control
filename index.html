@@ -902,6 +902,83 @@
     flex-shrink: 0;
   }
 
+  /* Trim slider — different color */
+  .trim-slider::-webkit-slider-thumb {
+    background: var(--amber) !important;
+    box-shadow: 0 2px 8px var(--amber-glow) !important;
+  }
+
+  .trim-slider::-moz-range-thumb {
+    background: var(--amber) !important;
+    box-shadow: 0 2px 8px var(--amber-glow) !important;
+  }
+
+  /* Speed preview */
+  .speed-preview {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .speed-motor {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .speed-motor-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .speed-motor-value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .btn-set-speed {
+    width: 100%;
+    padding: 12px 20px;
+    background: var(--green);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-set-speed:hover:not(:disabled) {
+    background: #7aa300;
+    transform: translateY(-1px);
+  }
+
+  .btn-set-speed:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .btn-set-speed.set {
+    background: var(--accent);
+  }
+
   .btn-servo-quick {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -983,9 +1060,43 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M12 8v8M8 12h8"/></svg>
         Bot Controller
       </div>
-      <span class="panel-badge" id="controlMode" style="cursor:pointer;user-select:none;" onclick="toggleControlMode()">
-        <span id="modeLabel">D-Pad</span> ⇄
-      </span>
+      <div style="display:flex;gap:6px;">
+        <span class="panel-badge" id="speedToggle" style="cursor:pointer;user-select:none;" onclick="toggleSpeedPanel()">
+          ⚡ Speed
+        </span>
+        <span class="panel-badge" id="controlMode" style="cursor:pointer;user-select:none;" onclick="toggleControlMode()">
+          <span id="modeLabel">D-Pad</span> ⇄
+        </span>
+      </div>
+    </div>
+    <!-- Speed Control (collapsible, above d-pad/joystick) -->
+    <div id="speedArea" style="display:none;border-bottom:1px solid var(--border);padding:18px 22px;">
+      <div style="max-width:320px;margin:0 auto;">
+        <div class="servo-row">
+          <div class="servo-label">Speed</div>
+          <input type="range" class="servo-slider speed-ctrl" id="speedSlider" min="0" max="100" value="50" disabled oninput="onSpeedChange()">
+          <div class="servo-value" id="speedVal">50<span>%</span></div>
+        </div>
+        <div class="servo-row">
+          <div class="servo-label">Trim</div>
+          <input type="range" class="servo-slider trim-slider speed-ctrl" id="trimSlider" min="-30" max="30" value="0" disabled oninput="onTrimChange()">
+          <div class="servo-value" id="trimVal" style="min-width:42px;">0</div>
+        </div>
+        <div class="speed-preview">
+          <div class="speed-motor">
+            <span class="speed-motor-label">Left Servo</span>
+            <span class="speed-motor-value" id="leftServoVal">50%</span>
+          </div>
+          <div class="speed-motor">
+            <span class="speed-motor-label">Right Servo</span>
+            <span class="speed-motor-value" id="rightServoVal">50%</span>
+          </div>
+        </div>
+        <button class="btn-set-speed" id="setSpeedBtn" disabled onclick="setSpeed()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Set Speed
+        </button>
+      </div>
     </div>
     <div class="controller-area" id="dpadArea">
       <div class="dpad" id="dpad">
@@ -1039,7 +1150,7 @@
     </div>
   </div>
 
-  <!-- Servo Sliders Panel -->
+  <!-- Slider Controls Panel (original servo slider) -->
   <div class="panel servo-panel">
     <div class="panel-header">
       <div class="panel-title">
@@ -1516,6 +1627,8 @@ function setControlsEnabled(enabled) {
   document.querySelectorAll('.dpad-btn').forEach(b => b.disabled = !enabled);
   document.querySelectorAll('.servo-slider').forEach(s => s.disabled = !enabled);
   document.querySelectorAll('.btn-servo-quick').forEach(b => b.disabled = !enabled);
+  const setBtn = document.getElementById('setSpeedBtn');
+  if (setBtn) setBtn.disabled = !enabled;
   if (!enabled) {
     document.getElementById('activeCmd').textContent = '—';
     document.getElementById('activeCmd').className = 'ctrl-status-value';
@@ -1528,7 +1641,59 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ─── Servo Control ───────────────────────────────
+// ─── Speed Control ───────────────────────────────
+
+let baseSpeed = 50;  // 0-100%
+let trimValue = 0;   // -30 to +30
+
+function getMotorSpeeds() {
+  let left = baseSpeed;
+  let right = baseSpeed;
+
+  if (trimValue > 0) {
+    // Trim right — slow down left servo
+    left = Math.max(0, baseSpeed - trimValue);
+  } else if (trimValue < 0) {
+    // Trim left — slow down right servo
+    right = Math.max(0, baseSpeed + trimValue); // trimValue is negative
+  }
+
+  return { left: Math.round(left), right: Math.round(right) };
+}
+
+function onSpeedChange() {
+  baseSpeed = parseInt(document.getElementById('speedSlider').value);
+  document.getElementById('speedVal').innerHTML = baseSpeed + '<span>%</span>';
+  updateSpeedPreview();
+}
+
+function onTrimChange() {
+  trimValue = parseInt(document.getElementById('trimSlider').value);
+  const label = trimValue > 0 ? 'R+' + trimValue : trimValue < 0 ? 'L+' + Math.abs(trimValue) : '0';
+  document.getElementById('trimVal').textContent = label;
+  updateSpeedPreview();
+}
+
+function updateSpeedPreview() {
+  const speeds = getMotorSpeeds();
+  document.getElementById('leftServoVal').textContent = speeds.left + '%';
+  document.getElementById('rightServoVal').textContent = speeds.right + '%';
+}
+
+function setSpeed() {
+  const speeds = getMotorSpeeds();
+  const cmd = 'V,' + speeds.left + ',' + speeds.right;
+  quickSend(cmd);
+  const btn = document.getElementById('setSpeedBtn');
+  btn.classList.add('set');
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Speed Set ✓';
+  setTimeout(() => {
+    btn.classList.remove('set');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Set Speed';
+  }, 2000);
+}
+
+// ─── Servo Slider (original) ─────────────────────
 
 function onServoChange(value) {
   document.getElementById('servo1Val').innerHTML = value + '<span>°</span>';
@@ -1560,6 +1725,22 @@ function toggleControlMode() {
     document.getElementById('dpadArea').style.display = '';
     document.getElementById('joystickArea').style.display = 'none';
     document.getElementById('modeLabel').textContent = 'D-Pad';
+  }
+}
+
+function toggleSpeedPanel() {
+  const area = document.getElementById('speedArea');
+  const btn = document.getElementById('speedToggle');
+  if (area.style.display === 'none') {
+    area.style.display = '';
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'var(--accent)';
+  } else {
+    area.style.display = 'none';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
   }
 }
 
