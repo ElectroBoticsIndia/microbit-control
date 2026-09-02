@@ -1065,7 +1065,7 @@
           ⚡ Speed
         </span>
         <span class="panel-badge" id="controlMode" style="cursor:pointer;user-select:none;" onclick="toggleControlMode()">
-          <span id="modeLabel">D-Pad</span> ⇄
+          <span id="modeLabel">Joystick</span> ⇄
         </span>
       </div>
     </div>
@@ -1074,22 +1074,22 @@
       <div style="max-width:320px;margin:0 auto;">
         <div class="servo-row">
           <div class="servo-label">Speed</div>
-          <input type="range" class="servo-slider speed-ctrl" id="speedSlider" min="0" max="100" value="50" disabled oninput="onSpeedChange()">
-          <div class="servo-value" id="speedVal">50<span>%</span></div>
+          <input type="range" class="servo-slider speed-ctrl" id="speedSlider" min="0" max="100" value="100" disabled oninput="onSpeedChange()">
+          <div class="servo-value" id="speedVal">100<span>%</span></div>
         </div>
         <div class="servo-row">
-          <div class="servo-label">Trim</div>
+          <div class="servo-label">Steer Adjust</div>
           <input type="range" class="servo-slider trim-slider speed-ctrl" id="trimSlider" min="-30" max="30" value="0" disabled oninput="onTrimChange()">
           <div class="servo-value" id="trimVal" style="min-width:42px;">0</div>
         </div>
         <div class="speed-preview">
           <div class="speed-motor">
             <span class="speed-motor-label">Left Servo</span>
-            <span class="speed-motor-value" id="leftServoVal">50%</span>
+            <span class="speed-motor-value" id="leftServoVal">100%</span>
           </div>
           <div class="speed-motor">
             <span class="speed-motor-label">Right Servo</span>
-            <span class="speed-motor-value" id="rightServoVal">50%</span>
+            <span class="speed-motor-value" id="rightServoVal">100%</span>
           </div>
         </div>
         <button class="btn-set-speed" id="setSpeedBtn" disabled onclick="setSpeed()">
@@ -1643,7 +1643,7 @@ function escapeHtml(text) {
 
 // ─── Speed Control ───────────────────────────────
 
-let baseSpeed = 50;  // 0-100%
+let baseSpeed = 100;  // 0-100%
 let trimValue = 0;   // -30 to +30
 
 function getMotorSpeeds() {
@@ -1718,13 +1718,13 @@ function toggleControlMode() {
     controlMode = 'joystick';
     document.getElementById('dpadArea').style.display = 'none';
     document.getElementById('joystickArea').style.display = '';
-    document.getElementById('modeLabel').textContent = 'Joystick';
+    document.getElementById('modeLabel').textContent = 'D-Pad';
     initJoystick();
   } else {
     controlMode = 'dpad';
     document.getElementById('dpadArea').style.display = '';
     document.getElementById('joystickArea').style.display = 'none';
-    document.getElementById('modeLabel').textContent = 'D-Pad';
+    document.getElementById('modeLabel').textContent = 'Joystick';
   }
 }
 
