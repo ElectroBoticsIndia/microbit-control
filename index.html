@@ -1197,6 +1197,9 @@
       </div>
       <div class="console-toolbar">
         <span class="panel-badge" id="msgCount">0 messages</span>
+        <button class="btn-icon" onclick="copyConsole()" title="Copy console">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
         <button class="btn-icon" onclick="clearConsole()" title="Clear console">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M5 6v14a2 2 0 002 2h10a2 2 0 002-2V6"/></svg>
         </button>
@@ -1591,6 +1594,39 @@ function logSystem(text) {
   }
 }
 
+function copyConsole() {
+  const lines = document.querySelectorAll('#console .console-line');
+  if (lines.length === 0) return;
+  const text = Array.from(lines).map(line => {
+    const time = line.querySelector('.console-time');
+    const dir = line.querySelector('.console-dir');
+    const msg = line.querySelector('.console-msg');
+    return (time ? time.textContent + ' ' : '') +
+           (dir ? dir.textContent + ' ' : '') +
+           (msg ? msg.textContent : '');
+  }).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    // Show feedback on the copy button
+    const btn = document.querySelector('[title="Copy console"]');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+    setTimeout(() => { btn.innerHTML = orig; }, 1500);
+  }).catch(() => {
+    // Fallback for mobile: create a textarea and select it
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.querySelector('[title="Copy console"]');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+    setTimeout(() => { btn.innerHTML = orig; }, 1500);
+  });
+}
+
 function clearConsole() {
   const con = document.getElementById('console');
   con.innerHTML = '<div class="console-empty">Console cleared<span>Waiting for data…</span></div>';
@@ -1691,6 +1727,14 @@ function setSpeed() {
   const speeds = getMotorSpeeds();
   const cmd = 'V,' + speeds.left + ',' + speeds.right;
   quickSend(cmd);
+
+  // If bot is currently moving, resend the active direction so new speed applies immediately
+  if (activeDirection && activeDirection !== 'S' && activeDirection !== null) {
+    setTimeout(() => {
+      quickSend(activeDirection);
+    }, 100);
+  }
+
   const btn = document.getElementById('setSpeedBtn');
   btn.classList.add('set');
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Speed Set ✓';
