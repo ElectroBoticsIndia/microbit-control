@@ -1433,6 +1433,13 @@ async function connect() {
     logSystem('✓ Ready — send and receive data below.');
     setControlsEnabled(true);
 
+    // Auto-send current speed to micro:bit so it matches the app
+    setTimeout(() => {
+      const speeds = getMotorSpeeds();
+      quickSend('V,' + speeds.left + ',' + speeds.right);
+      logSystem('Speed sent: L=' + speeds.left + '% R=' + speeds.right + '%');
+    }, 500);
+
   } catch (err) {
     if (err.name === 'NotFoundError') {
       logSystem('No device selected.');
